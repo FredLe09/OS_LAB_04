@@ -47,9 +47,18 @@ int main(int argc, char *argv[])
 {
     printf("===== SRTF Scheduling =====\n");
     srand(time(NULL));
+    // Initialize array of PCB
     PCB *InputArray[MAX_PCB];
+    for (int i = 0; i < MAX_PCB; i++)
+        InputArray[i] = NULL;
+
     PCB *ReadyQueue[MAX_PCB];
+    for (int i = 0; i < MAX_PCB; i++)
+        ReadyQueue[i] = NULL;
+
     PCB *TerArray[MAX_PCB];
+    for (int i = 0; i < MAX_PCB; i++)
+        TerArray[i] = NULL;
 
     // [0] -> TimePoint, [1] -> PID
     int logProcess[2 * MAX_PCB][2];
