@@ -179,12 +179,12 @@ void exportGanttChart(int n, PCB *arr[])
     printf("%d\t%d\n", arr[n - 1]->iStart, arr[n - 1]->iFinish);
 
     if (arr[0]->iStart > 0)
-        printf("|\t");
+        printf("| IDLE\t");
     for (int i = 0; i < n - 1; i++)
     {
         printf("| P%d\t", arr[i]->iPID);
         if (arr[i]->iFinish < arr[i + 1]->iStart)
-            printf("|\t");
+            printf("| IDLE\t");
     }
     printf("| P%d\t|\t\n", arr[n - 1]->iPID);
 
