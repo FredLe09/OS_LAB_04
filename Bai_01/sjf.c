@@ -10,6 +10,8 @@ enum Criteria
     BY_START
 };
 
+#define UNDEFINED -1
+
 #define MAX_PCB 10
 
 #define MIN_ARRIVAL 0
@@ -24,6 +26,7 @@ typedef struct
     int iStart, iFinish, iWaiting, iResponse, iTaT;
 } PCB;
 
+void genProcess(int numberOfProcess, PCB *processArr[]);
 void inputProcess(int numberOfProcess, PCB *processArr[]);
 void printProcess(int numberOfProcess, PCB *processArr[]);
 void exportGanttChart(int numberOfProcess, PCB *processArr[]);
@@ -39,7 +42,7 @@ void calculateATaT(int numberOfProcess, PCB *processArr[]);
 
 int main(int argc, char *argv[])
 {
-    printf("===== FCFS Scheduling =====\n");
+    printf("===== SJF Scheduling =====\n");
     srand(time(NULL));
     PCB *InputArray[MAX_PCB];
     PCB *ReadyQueue[MAX_PCB];
@@ -50,13 +53,16 @@ int main(int argc, char *argv[])
     {
         printf("Please input number of Process: ");
         scanf("%d", &iNumberOfProcess);
+        inputProcess(iNumberOfProcess, InputArray);
     }
     else
+    {
         iNumberOfProcess = atoi(argv[1]);
+        genProcess(iNumberOfProcess, InputArray);
+    }
 
     int iRemain = iNumberOfProcess, iReady = 0, iTer = 0;
 
-    inputProcess(iNumberOfProcess, InputArray);
     quickSort(InputArray, 0, iNumberOfProcess - 1,
               BY_ARRIVAL);
     printf("\nInput Array: ");
@@ -111,7 +117,7 @@ int main(int argc, char *argv[])
     printf("\nIn Result\nTerminated Queue: ");
     printProcess(iTer, TerArray);
 
-    printf("\n===== FCFS Scheduling =====\n");
+    printf("\n===== SJF Scheduling =====\n");
 
     exportGanttChart(iTer, TerArray);
     quickSort(TerArray, 0, iTer - 1,
@@ -131,7 +137,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void inputProcess(int n, PCB *arr[])
+void genProcess(int n, PCB *arr[])
 {
     for (int i = 0; i < n; i++)
     {
@@ -141,11 +147,30 @@ void inputProcess(int n, PCB *arr[])
                            MIN_ARRIVAL;
         arr[i]->iBurst = rand() % (MAX_BURST - MIN_BURST + 1) +
                          MIN_BURST;
-        arr[i]->iStart = -1;
-        arr[i]->iFinish = -1;
-        arr[i]->iWaiting = -1;
-        arr[i]->iResponse = -1;
-        arr[i]->iTaT = -1;
+        arr[i]->iStart = UNDEFINED;
+        arr[i]->iFinish = UNDEFINED;
+        arr[i]->iWaiting = UNDEFINED;
+        arr[i]->iResponse = UNDEFINED;
+        arr[i]->iTaT = UNDEFINED;
+    }
+}
+
+void inputProcess(int n, PCB *arr[])
+{
+    for (int i = 0; i < n; i++)
+    {
+        arr[i] = (PCB *)malloc(sizeof(PCB));
+        printf("Process %d\n", i + 1);
+        printf("Arrival Time: ");
+        scanf("%d", &arr[i]->iArrival);
+        printf("Burst Time: ");
+        scanf("%d", &arr[i]->iBurst);
+        arr[i]->iPID = i + 1;
+        arr[i]->iStart = UNDEFINED;
+        arr[i]->iFinish = UNDEFINED;
+        arr[i]->iWaiting = UNDEFINED;
+        arr[i]->iResponse = UNDEFINED;
+        arr[i]->iTaT = UNDEFINED;
     }
 }
 
@@ -179,12 +204,12 @@ void exportGanttChart(int n, PCB *arr[])
     printf("%d\t%d\n", arr[n - 1]->iStart, arr[n - 1]->iFinish);
 
     if (arr[0]->iStart > 0)
-        printf("|\t");
+        printf("| IDLE\t");
     for (int i = 0; i < n - 1; i++)
     {
         printf("| P%d\t", arr[i]->iPID);
         if (arr[i]->iFinish < arr[i + 1]->iStart)
-            printf("|\t");
+            printf("| IDLE\t");
     }
     printf("| P%d\t|\t\n", arr[n - 1]->iPID);
 
