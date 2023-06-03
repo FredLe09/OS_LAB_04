@@ -34,7 +34,9 @@ void pushProcess(int *numberOfProcess, PCB *processArr[], int index, PCB *proces
 void removeProcess(int *numberOfProcess, PCB *processArr[], int index);
 int compareProcess(PCB *processA, PCB *processB, int iCriteria);
 void swapProcess(PCB **processA, PCB **processB);
-void setPCBFinish(PCB *process, int startTime);
+int checkPCBStart(PCB *process);
+void setPCBStart(PCB *process, int timePoint);
+void setPCBFinish(PCB *process, int timePoint);
 int partition(PCB *processArr[], int low, int high, int iCriteria);
 void quickSort(PCB *processArr[], int low, int high, int iCriteria);
 void calculateAWT(int numberOfProcess, PCB *processArr[]);
@@ -44,10 +46,24 @@ int main(int argc, char *argv[])
 {
     printf("===== SJF Scheduling =====\n");
     srand(time(NULL));
+    // Initialize array of PCB
     PCB *InputArray[MAX_PCB];
-    PCB *ReadyQueue[MAX_PCB];
-    PCB *TerArray[MAX_PCB];
+    for (int i = 0; i < MAX_PCB; i++)
+        InputArray[i] = NULL;
 
+    PCB *ReadyQueue[MAX_PCB];
+    for (int i = 0; i < MAX_PCB; i++)
+        ReadyQueue[i] = NULL;
+
+    PCB *TerArray[MAX_PCB];
+    for (int i = 0; i < MAX_PCB; i++)
+        TerArray[i] = NULL;
+
+    // Input number of process
+    // If no argument, input from keyboard
+    // And manual input processes
+    // Else, generate random number of process
+    // And auto generate random number of process
     int iNumberOfProcess;
     if (argc < 2)
     {
@@ -61,70 +77,110 @@ int main(int argc, char *argv[])
         genProcess(iNumberOfProcess, InputArray);
     }
 
+    // Initialize number of InputArray, ReadyQueue, TerArray
     int iRemain = iNumberOfProcess, iReady = 0, iTer = 0;
 
+    // Sort input array by arrival time
+    // And print input array
     quickSort(InputArray, 0, iNumberOfProcess - 1,
               BY_ARRIVAL);
-    printf("\nInput Array: ");
+    printf("===== SJF Scheduling =====\n");
+    printf("\nInput Array:\n");
     printProcess(iNumberOfProcess, InputArray);
 
     int step = 0;
+    int timePoint = 0;
 
+    // Check if any process is not terminated
     while (iTer < iNumberOfProcess)
     {
+        // Check if ready queue is empty
         if (iReady == 0)
         {
-            pushProcess(&iReady, ReadyQueue,
-                        0, InputArray[0]);
-            removeProcess(&iRemain, InputArray, 0);
+            // timePoint is skipped to the early arrival time
+            timePoint = InputArray[0]->iArrival;
 
-            printf("\nStep %d", ++step);
-            printf("\nReady Queue: ");
-            printProcess(iReady, ReadyQueue);
+            // Push all process that have same arrival time
+            // into ready queue
+            while (iRemain > 0 && InputArray[0]->iArrival <= timePoint)
+            {
+                pushProcess(&iReady, ReadyQueue,
+                            iReady, InputArray[0]);
+                removeProcess(&iRemain, InputArray, 0);
+            }
 
-            printf("\nTerminated Array: ");
-            printProcess(iTer, TerArray);
+            // Sort all process in ready queue by burst time
+            quickSort(ReadyQueue, 0, iReady - 1,
+                      BY_BURST);
 
-            continue;
+            // Set the first process in ready queue to running
+            setPCBStart(ReadyQueue[0], timePoint);
+
+            // Show the step by step with the following code
+            // printf("\nStep %d at time: %d\n", ++step, timePoint);
+
+            // printf("Ready Queue:\n");
+            // printProcess(iReady, ReadyQueue);
+
+            // printf("Terminated Queue:\n");
+            // printProcess(iTer, TerArray);
         }
-        else if (iTer == 0 || ReadyQueue[0]->iArrival >= TerArray[iTer - 1]->iFinish)
-            setPCBFinish(ReadyQueue[0], ReadyQueue[0]->iArrival);
-        else
-            setPCBFinish(ReadyQueue[0], TerArray[iTer - 1]->iFinish);
-
-        while (iRemain > 0 && InputArray[0]->iArrival <= ReadyQueue[0]->iFinish)
+        // Else if ready queue is not empty
+        else if (iReady > 0)
         {
-            pushProcess(&iReady, ReadyQueue,
-                        iReady, InputArray[0]);
-            removeProcess(&iRemain, InputArray, 0);
+            // Make sure that the first proecess in ready queue
+            // is running
+            if (!checkPCBStart(ReadyQueue[0]))
+                setPCBStart(ReadyQueue[0], timePoint);
+
+            // Increase time point by burst time of running process
+            // And set the running process to terminated
+            timePoint += ReadyQueue[0]->iBurst;
+            setPCBFinish(ReadyQueue[0], timePoint);
+
+            // Push all process that have same arrival time
+            // into ready queue
+            while (iRemain > 0 && InputArray[0]->iArrival <= timePoint)
+            {
+                pushProcess(&iReady, ReadyQueue,
+                            iReady, InputArray[0]);
+                removeProcess(&iRemain, InputArray, 0);
+            }
+
+            // Sort all process in ready queue by burst time
+            // expect the running process
+            quickSort(ReadyQueue, 1, iReady - 1,
+                      BY_BURST);
+
+            // Move the terminated process to terminated queue
+            pushProcess(&iTer, TerArray,
+                        iTer, ReadyQueue[0]);
+            removeProcess(&iReady, ReadyQueue, 0);
+
+            // Show the step by step with the following code
+            // printf("\nStep %d at time: %d\n", ++step, timePoint);
+
+            // printf("Ready Queue:\n");
+            // printProcess(iReady, ReadyQueue);
+
+            // printf("Terminated Queue:\n");
+            // printProcess(iTer, TerArray);
         }
-
-        quickSort(ReadyQueue, 1, iReady - 1,
-                  BY_BURST);
-
-        printf("\nStep %d", ++step);
-        printf("\nReady Queue: ");
-        printProcess(iReady, ReadyQueue);
-
-        printf("\nTerminated Array: ");
-        printProcess(iTer, TerArray);
-
-        pushProcess(&iTer, TerArray,
-                    iTer, ReadyQueue[0]);
-        removeProcess(&iReady, ReadyQueue, 0);
     }
 
-    printf("\nIn Result\nTerminated Queue: ");
+    printf("In Result\nTerminated Queue:\n");
     printProcess(iTer, TerArray);
 
     printf("\n===== SJF Scheduling =====\n");
 
+    // Export Gantt Chart by TerArray
     exportGanttChart(iTer, TerArray);
-    quickSort(TerArray, 0, iTer - 1,
-              BY_PID);
+
+    // Calculate Average Waiting Time and Average Turnaround Time
     calculateAWT(iTer, TerArray);
     calculateATaT(iTer, TerArray);
 
+    // Free all allocated memory
     for (int i = 0; i < iRemain; i++)
         free(InputArray[i]);
 
@@ -176,7 +232,8 @@ void inputProcess(int n, PCB *arr[])
 
 void printProcess(int n, PCB *arr[])
 {
-    printf("\nPID\tArrival\tBurst\tStart\tFinish\tResponse\tWaiting\tTaT\n");
+    printf("------\n");
+    printf("PID\tArrival\tBurst\tStart\tFinish\tResponse\tWaiting\tTaT\n");
     for (int i = 0; i < n; i++)
         printf("%d\t%d\t%d\t%d\t%d\t%d\t\t%d\t%d\n",
                arr[i]->iPID,
@@ -187,6 +244,14 @@ void printProcess(int n, PCB *arr[])
                arr[i]->iResponse,
                arr[i]->iWaiting,
                arr[i]->iTaT);
+    printf("------\n");
+}
+
+void writeLog(int *n, int arr[][2], int t, PCB *p)
+{
+    arr[*n][0] = t;
+    arr[*n][1] = (p ? p->iPID : UNDEFINED);
+    (*n)++;
 }
 
 void exportGanttChart(int n, PCB *arr[])
@@ -229,7 +294,7 @@ void removeProcess(int *n, PCB *arr[], int ind)
 {
     for (int i = ind; i < *n - 1; i++)
         arr[i] = arr[i + 1];
-
+    arr[*n - 1] = NULL;
     (*n)--;
 }
 
@@ -258,11 +323,23 @@ void swapProcess(PCB **a, PCB **b)
     *b = temp;
 }
 
-void setPCBFinish(PCB *p, int s)
+int checkPCBStart(PCB *p)
 {
-    p->iStart = s;
-    p->iFinish = p->iStart + p->iBurst;
+    if (!p)
+        return -1;
+    else
+        return (p->iStart == -1 ? 0 : 1);
+}
+
+void setPCBStart(PCB *p, int t)
+{
+    p->iStart = t;
     p->iResponse = p->iStart - p->iArrival;
+}
+
+void setPCBFinish(PCB *p, int t)
+{
+    p->iFinish = t;
     p->iTaT = p->iFinish - p->iArrival;
     p->iWaiting = p->iTaT - p->iBurst;
 }
@@ -288,20 +365,20 @@ void quickSort(PCB *arr[], int l, int h, int c)
     }
 }
 
-void calculateAWT(int numberOfProcess, PCB *arr[])
+void calculateAWT(int n, PCB *arr[])
 {
     int sum = 0;
-    for (int i = 0; i < numberOfProcess; i++)
+    for (int i = 0; i < n; i++)
         sum += arr[i]->iWaiting;
 
-    printf("Average Waiting Time: %.2f\n", (float)sum / numberOfProcess);
+    printf("Average Waiting Time: %.2f\n", (float)sum / n);
 }
 
-void calculateATaT(int numberOfProcess, PCB *arr[])
+void calculateATaT(int n, PCB *arr[])
 {
     int sum = 0;
-    for (int i = 0; i < numberOfProcess; i++)
+    for (int i = 0; i < n; i++)
         sum += arr[i]->iTaT;
 
-    printf("Average Turnaround Time: %.2f\n", (float)sum / numberOfProcess);
+    printf("Average Turnaround Time: %.2f\n", (float)sum / n);
 }
