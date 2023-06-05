@@ -30,8 +30,8 @@ typedef struct
     int iStart, iFinish, iWaiting, iResponse, iTaT;
 } PCB;
 
-void inputProcess(int numberOfProcess, PCB *processArr[]);
 void genProcess(int numberOfProcess, PCB *processArr[]);
+void inputProcess(int numberOfProcess, PCB *processArr[]);
 void printProcess(int numberOfProcess, PCB *processArr[]);
 void writeLog(int *numberOfLog, int logArray[][2], int iTimePoint, PCB *);
 void exportGanttChart(int numberOfLog, int logArray[][2]);
@@ -64,107 +64,226 @@ int main(int argc, char *argv[])
     for (int i = 0; i < MAX_PCB; i++)
         TerArray[i] = NULL;
 
-    const int TIME_QUANTUM = rand() % (MAX_QUANTUM - MIN_QUANTUM + 1) +
-                             MIN_QUANTUM;
-
-    // [0] -> iTimePoint, [1] -> PID
+    // Initialize array of log file
+    // - First column is time point
+    // - Second column is PID
     int LogProcess[5 * MAX_PCB][2];
 
+    // Input number of process
+    // If no argument, input from keyboard
+    // And manual input processes and TIME_QUANTUM
+    // Else, generate random number of process
+    // And auto generate random number of process
     int iNumberOfProcess;
+    int TIME_QUANTUM;
     if (argc < 2)
     {
         printf("Please input number of Process: ");
         scanf("%d", &iNumberOfProcess);
         inputProcess(iNumberOfProcess, InputArray);
+        int time_quantum;
+        printf("Please input TIME_QUANTUM: ");
+        scanf("%d", &TIME_QUANTUM);
     }
     else
     {
         iNumberOfProcess = atoi(argv[1]);
         genProcess(iNumberOfProcess, InputArray);
+        TIME_QUANTUM = rand() % (MAX_QUANTUM - MIN_QUANTUM + 1) +
+                       MIN_QUANTUM;
     }
 
+    // Initialize number of InputArray, ReadyQueue, TerArray
     int iRemain = iNumberOfProcess, iReady = 0, iTer = 0;
 
-    genProcess(iNumberOfProcess, InputArray);
+    // Sort input array by arrival time
+    // And print input array
     quickSort(InputArray, 0, iNumberOfProcess - 1,
               BY_ARRIVAL);
+    printf("===== RR Scheduling =====\n");
     printf("\nInput Array:\n");
     printProcess(iNumberOfProcess, InputArray);
 
-    int iStep = 0;
-    int iTimePoint = 0;
-    int iLogIndex = 0;
+    int step = 0;
+    int timePoint = 0;
+    int timeLine = 0;
 
+    // Check if any process is not terminated
     while (iTer < iNumberOfProcess)
     {
-        // Set all process that arrive to ready queue
-        while (iRemain > 0 && InputArray[0]->iArrival <= iTimePoint)
+        // Check if ready queue is empty
+        if (iReady == 0)
         {
-            pushProcess(&iReady, ReadyQueue,
-                        iReady, InputArray[0]);
-            removeProcess(&iRemain, InputArray, 0);
-        }
+            // timePoint is skipped to the early arrival time
+            timePoint = InputArray[0]->iArrival;
 
-        // Check if ready queue is not empty and
-        // process that finish
-        if (iReady > 0 && ReadyQueue[0]->iRemainBurst == 0)
-        {
-            // Set process that finish to terminated queue
-            setPCBFinish(ReadyQueue[0], iTimePoint);
-            pushProcess(&iTer, TerArray,
-                        iTer, ReadyQueue[0]);
-            removeProcess(&iReady, ReadyQueue, 0);
-        }
-        // Check if ready queue is not empty and
-        // process that finrsh quantum time
-        else if (iReady > 0 && ReadyQueue[0]->iRemainBurst > 0)
-        {
-            // Put process that finish quantum time to bottom ready queue
-            if (ReadyQueue[0]->iRemainBurst > 0)
+            // Push all process that have same arrival time
+            while (iRemain > 0 && InputArray[0]->iArrival <= timePoint)
             {
+                pushProcess(&iReady, ReadyQueue,
+                            iReady, InputArray[0]);
+                removeProcess(&iRemain, InputArray, 0);
+            }
+        }
+        // Else if ready queue is not empty
+        else if (iReady > 0)
+        {
+            // Make sure that the current process is running
+            if (!checkPCBStart(ReadyQueue[0]))
+                setPCBStart(ReadyQueue[0], timePoint);
+
+            // Increase time point by the min between remain burst time
+            // And quantum time.
+            if (ReadyQueue[0]->iRemainBurst <= TIME_QUANTUM)
+            {
+                timePoint += ReadyQueue[0]->iRemainBurst;
+
+                // Set remain burst time to 0
+                // And that process is terminated
+                ReadyQueue[0]->iRemainBurst = 0;
+                setPCBFinish(ReadyQueue[0], timePoint);
+            }
+            else
+            {
+                timePoint += TIME_QUANTUM;
+
+                // Decrease remain burst time by quantum time
+                ReadyQueue[0]->iRemainBurst -= TIME_QUANTUM;
+            }
+
+            // Push all process that have same arrival time
+            // into ready queue
+            while (iRemain > 0 && InputArray[0]->iArrival <= timePoint)
+            {
+                pushProcess(&iReady, ReadyQueue,
+                            iReady, InputArray[0]);
+                removeProcess(&iRemain, InputArray, 0);
+            }
+
+            // If current process is terminated
+            if (ReadyQueue[0]->iRemainBurst == 0)
+            {
+                // Push current process into TerArray
+                pushProcess(&iTer, TerArray,
+                            iTer, ReadyQueue[0]);
+                removeProcess(&iReady, ReadyQueue, 0);
+            }
+            // Else if current process is not terminated
+            else if (ReadyQueue[0]->iRemainBurst > 0)
+            {
+                // Move that process to the end of ReadyQueue
                 pushProcess(&iReady, ReadyQueue,
                             iReady, ReadyQueue[0]);
                 removeProcess(&iReady, ReadyQueue, 0);
             }
         }
 
-        // Set process start time if not
-        if (iReady > 0 && !checkPCBStart(ReadyQueue[0]))
-            setPCBStart(ReadyQueue[0], iTimePoint);
+        // Write log file
+        writeLog(&timeLine, LogProcess, timePoint, ReadyQueue[0]);
 
-        writeLog(&iLogIndex, LogProcess, iTimePoint, ReadyQueue[0]);
+        // Show the step by step with the following code
+        // printf("\nStep %d at time: %d\n", ++step, timePoint);
 
-        printf("\nQuantum Time: %d\nStep %d at time: %d\n",
-               TIME_QUANTUM, ++iStep, iTimePoint);
+        // printf("Ready Queue:\n");
+        // printProcess(iReady, ReadyQueue);
 
-        printf("Ready Queue:\n");
-        printProcess(iReady, ReadyQueue);
+        // printf("Terminated Queue:\n");
+        // printProcess(iTer, TerArray);
 
-        printf("Terminated Queue:\n");
-        printProcess(iTer, TerArray);
+        // // Set all process that arrive to ready queue
+        // while (iRemain > 0 && InputArray[0]->iArrival <= iTimePoint)
+        // {
+        //     pushProcess(&iReady, ReadyQueue,
+        //                 iReady, InputArray[0]);
+        //     removeProcess(&iRemain, InputArray, 0);
+        // }
 
-        int iTimeSpend = TIME_QUANTUM;
-        if (iReady > 0)
-        {
-            if (ReadyQueue[0]->iRemainBurst < TIME_QUANTUM)
-                iTimeSpend = ReadyQueue[0]->iRemainBurst;
+        // if (iReady > 0)
+        // {
+        //     if (ReadyQueue[0]->iRemainBurst == 0)
+        //     {
+        //         setPCBFinish(ReadyQueue[0], iTimePoint);
+        //         pushProcess(&iTer, TerArray,
+        //                     iTer, ReadyQueue[0]);
+        //         removeProcess(&iReady, ReadyQueue, 0);
+        //     }
+        //     else if (ReadyQueue[0]->iRemainBurst > 0)
+        //     {
+        //         pushProcess(&iReady, ReadyQueue,
+        //                     iReady, ReadyQueue[0]);
+        //         removeProcess(&iReady, ReadyQueue, 0);
+        //     }
 
-            ReadyQueue[0]->iRemainBurst -= iTimeSpend;
-        }
-        else if (iReady == 0 && iRemain > 0)
-            iTimeSpend = InputArray[0]->iArrival - iTimePoint;
+        //     if (!checkPCBStart(ReadyQueue[0]))
+        //         setPCBStart(ReadyQueue[0], iTimePoint);
+        // }
 
-        iTimePoint += iTimeSpend;
+        // // // Check if ready queue is not empty and
+        // // // process that finish
+        // // if (iReady > 0 && ReadyQueue[0]->iRemainBurst == 0)
+        // // {
+        // //     // Set process that finish to terminated queue
+        // //     setPCBFinish(ReadyQueue[0], iTimePoint);
+        // //     pushProcess(&iTer, TerArray,
+        // //                 iTer, ReadyQueue[0]);
+        // //     removeProcess(&iReady, ReadyQueue, 0);
+        // // }
+        // // // Check if ready queue is not empty and
+        // // // process that only finrsh quantum time
+        // // else if (iReady > 0 && ReadyQueue[0]->iRemainBurst > 0)
+        // // {
+        // //     // Put process that finish quantum time to bottom ready queue
+        // //     if (ReadyQueue[0]->iRemainBurst > 0)
+        // //     {
+        // //         pushProcess(&iReady, ReadyQueue,
+        // //                     iReady, ReadyQueue[0]);
+        // //         removeProcess(&iReady, ReadyQueue, 0);
+        // //     }
+        // // }
+
+        // // // Set process start time if not
+        // // if (iReady > 0 && !checkPCBStart(ReadyQueue[0]))
+        // //     setPCBStart(ReadyQueue[0], iTimePoint);
+
+        // writeLog(&iLogIndex, LogProcess, iTimePoint, ReadyQueue[0]);
+
+        // printf("\nQuantum Time: %d\nStep %d at time: %d\n",
+        //        TIME_QUANTUM, ++iStep, iTimePoint);
+
+        // printf("Ready Queue:\n");
+        // printProcess(iReady, ReadyQueue);
+
+        // printf("Terminated Queue:\n");
+        // printProcess(iTer, TerArray);
+
+        // int iTimeSpend = TIME_QUANTUM;
+        // if (iReady > 0)
+        // {
+        //     if (ReadyQueue[0]->iRemainBurst < TIME_QUANTUM)
+        //         iTimeSpend = ReadyQueue[0]->iRemainBurst;
+
+        //     ReadyQueue[0]->iRemainBurst -= iTimeSpend;
+        // }
+        // else if (iReady == 0 && iRemain > 0)
+        //     iTimeSpend = InputArray[0]->iArrival - iTimePoint;
+
+        // iTimePoint += iTimeSpend;
     }
 
-    printf("\n===== RR Scheduling with QUANTUM = %d =====\n", TIME_QUANTUM);
-    for (int i = 0; i < iLogIndex; i++)
-        printf("Time: %d, PID: %d\n", LogProcess[i][0], LogProcess[i][1]);
-    exportGanttChart(iLogIndex, LogProcess);
+    printf("In Result\nTerminated Queue:\n");
+    printProcess(iTer, TerArray);
 
+    printf("\n===== RR Scheduling with QUANTUM = %d =====\n", TIME_QUANTUM);
+    // for (int i = 0; i < timeLine; i++)
+    //     printf("Time: %d, PID: %d\n", LogProcess[i][0], LogProcess[i][1]);
+    // Export Gannt Chart
+    exportGanttChart(timeLine, LogProcess);
+
+    // Calculate AWT and ATAT
     calculateAWT(iTer, TerArray);
     calculateATaT(iTer, TerArray);
 
+    // Free all allocated memory
     for (int i = 0; i < iRemain; i++)
         free(InputArray[i]);
 

@@ -108,30 +108,12 @@ int main(int argc, char *argv[])
                             iReady, InputArray[0]);
                 removeProcess(&iRemain, InputArray, 0);
             }
-
-            // Sort all process in ready queue by burst time
-            quickSort(ReadyQueue, 0, iReady - 1,
-                      BY_BURST);
-
-            // Set the first process in ready queue to running
-            setPCBStart(ReadyQueue[0], timePoint);
-
-            // Show the step by step with the following code
-            // printf("\nStep %d at time: %d\n", ++step, timePoint);
-
-            // printf("Ready Queue:\n");
-            // printProcess(iReady, ReadyQueue);
-
-            // printf("Terminated Queue:\n");
-            // printProcess(iTer, TerArray);
         }
         // Else if ready queue is not empty
         else if (iReady > 0)
         {
-            // Make sure that the first proecess in ready queue
-            // is running
-            if (!checkPCBStart(ReadyQueue[0]))
-                setPCBStart(ReadyQueue[0], timePoint);
+            // Make sure that the first proecess in ready queue is running
+            setPCBStart(ReadyQueue[0], timePoint);
 
             // Increase time point by burst time of running process
             // And set the running process to terminated
@@ -147,25 +129,24 @@ int main(int argc, char *argv[])
                 removeProcess(&iRemain, InputArray, 0);
             }
 
-            // Sort all process in ready queue by burst time
-            // expect the running process
-            quickSort(ReadyQueue, 1, iReady - 1,
-                      BY_BURST);
-
             // Move the terminated process to terminated queue
             pushProcess(&iTer, TerArray,
                         iTer, ReadyQueue[0]);
             removeProcess(&iReady, ReadyQueue, 0);
-
-            // Show the step by step with the following code
-            // printf("\nStep %d at time: %d\n", ++step, timePoint);
-
-            // printf("Ready Queue:\n");
-            // printProcess(iReady, ReadyQueue);
-
-            // printf("Terminated Queue:\n");
-            // printProcess(iTer, TerArray);
         }
+
+        // Sort all process in ready queue by burst time
+        quickSort(ReadyQueue, 0, iReady - 1,
+                  BY_BURST);
+
+        // Show the step by step with the following code
+        // printf("\nStep %d at time: %d\n", ++step, timePoint);
+
+        // printf("Ready Queue:\n");
+        // printProcess(iReady, ReadyQueue);
+
+        // printf("Terminated Queue:\n");
+        // printProcess(iTer, TerArray);
     }
 
     printf("In Result\nTerminated Queue:\n");
